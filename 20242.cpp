@@ -15,6 +15,7 @@
 
 #include <shader_m.h>
 #include <camera.h>
+//#include <cameraXZ.h>
 #include <modelAnim.h>
 #include <model.h>
 #include <Skybox.h>
@@ -37,11 +38,19 @@ GLFWmonitor* monitors;
 GLuint VBO[3], VAO[3], EBO[3];
 
 //Camera
-Camera camera(glm::vec3(0.0f, 10.0f, 100.0f));
+float	movX_Sonic = 0.0f,
+		movY_Sonic = 4.0f,
+		movZ_Sonic = 200.0f,
+		rotacionSonic = 0.0f,
+		orientacionSonic = 180.0f;
+int		adelanteSonic = 1;
+
+Camera camera(glm::vec3(movX_Sonic, movY_Sonic+10.0f, movZ_Sonic+15.0f));
 float MovementSpeed = 0.1f;
 GLfloat lastX = SCR_WIDTH / 2.0f,
 		lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
+
 
 //Timing
 const int FPS = 60;
@@ -69,6 +78,31 @@ float	rotHAspas = 0.0f,
 int		heliAdelante = 1,
 		heliIzquierda = 0;
 
+//Variables Botnik
+float	botnikRotate = 0.0f,
+		botnikAlas = 45.0f;
+int		arribaAlasBotnik = 1;
+
+//Variables Nudillos
+float	orientacionNudillos = 0.0f,
+		orientacionAlcantarilla = 0.0f,
+		MovY_Nudillos = -18.0f;
+
+//Animacion Eggman
+float	movEggman_x = 0.0f,
+		movEggman_y = 0.0f,
+		movEggman_z = 0.0f,
+		rotEggman = 0.0f,
+		orientaEggman;
+bool	animEggman = false;
+int		volando = 1,
+		adelanteEggman = 1;
+//Animacion Tiro Parabólico Eggman
+float	g = 9.81f, v = 60.0f, ang = 60.0f, t = 45.0f;
+double	n = 3.1416;
+float	i = 0.0f;
+
+
 
 
 //Texture
@@ -79,7 +113,10 @@ t_white,
 t_ladrillos,
 t_piso,
 t_pista,
-t_carretera;
+t_carretera,
+t_edificio,
+t_metal,
+t_puertaOficina;
 
 //Lighting
 glm::vec3 lightPosition(0.0f, 4.0f, -10.0f);
@@ -92,10 +129,14 @@ glm::vec3 ambientColor = diffuseColor * glm::vec3(0.75f);
 
 // posiciones
 float	movAuto_x = 0.0f,
-movAuto_z = -100.0f,
+movAuto_z = -50.0f,
 orienta = 90.0f;
 bool	animacion = false,
 animacion2 = false,
+animacionBotnik = false,
+animacionNudillos = false,
+animSonicX = false,
+animSonicZ = false,
 recorrido1 = true,
 recorrido2 = false,
 recorrido3 = false,
@@ -218,6 +259,9 @@ void LoadTextures()
 	t_piso = generateTextures("Texturas/piso.jpg", 0, true);
 	t_pista = generateTextures("Texturas/pistacomp.jpg", 0, true);
 	t_carretera = generateTextures("Texturas/carreteras.jpg", 0, true);
+	t_edificio = generateTextures("Texturas/Edificio.png", 0, true);
+	t_metal = generateTextures("Texturas/metal.jpg", 0, true);
+	t_puertaOficina = generateTextures("Texturas/puertaOficina.jpg", 0, true);
 	//This must be the last
 	t_white = generateTextures("Texturas/white.jpg", 0, false);
 }
@@ -259,12 +303,81 @@ void animate(void)
 		}
 	}
 
+	//if (animSonicX) {
+	//	movX_Sonic += 0.3;
+	//	animSonicX = false;
+	//}
+	//if (animSonicZ) {
+	//	movZ_Sonic += 0.3;
+	//	//animSonicZ = false;
+	//}
 	//Vehículo
 	if (animacion)
 	{
 		movAuto_x += 3.0f;
 	}
 
+	//Botnik
+	if (animacionBotnik)
+	{
+		botnikRotate -= 3.0;
+		if (arribaAlasBotnik == 1) {
+			if (botnikAlas >= -45)
+				botnikAlas -= 7.0;
+			else
+				arribaAlasBotnik = 0;
+		}
+		
+		if (arribaAlasBotnik == 0) {
+			if (botnikAlas <= 45)
+				botnikAlas += 7.0;
+			else
+				arribaAlasBotnik = 1;
+		}
+	}
+
+	//Nudillos
+	if (animacionNudillos)
+	{
+		if (orientacionAlcantarilla <= 90.0f)
+			orientacionAlcantarilla += 1.0;
+		else {
+			if (MovY_Nudillos <= 1.5)
+				MovY_Nudillos += 0.25;
+			else
+				orientacionNudillos += 2.0;
+		}
+	}
+
+	if (volando == 1) {
+		if (adelanteEggman == 1) {
+			orientaEggman = 0.0f;
+			if (movEggman_x <= 60.0f)
+				movEggman_x += 5.5;
+			else
+				adelanteEggman = 0;
+		}
+		if (adelanteEggman == 0) {
+			orientaEggman = 180.0;
+			if (movEggman_x >= -60.0f)
+				movEggman_x -= 5.5;
+			else
+				adelanteEggman = 1;
+		}
+	}
+
+	if (animEggman)
+	{
+		rotEggman -= 6.1f;
+		i += 0.12f;
+		movEggman_x = 0 + i * v * cos(ang * n / 180);
+		movEggman_y = 0 + (i * v * sin(ang * n / 180) - (g * i * i) / 2);
+		if (movEggman_y <= 0.0f)
+		{
+			i = 0.0f;
+			animEggman = false;
+		}
+	}
 
 	//Helicoptero
 	rotHAspas += 20.0f;
@@ -367,26 +480,26 @@ void myData() {
 		0.5f, 0.5f, -0.5f,		0.0f, 1.0f,	//V6
 		-0.5f, 0.5f, -0.5f,		1.0f, 1.0f,	//V7
 
-		-0.5f, 0.5f, 0.5f,		0.0f, 1.0f,	//V4 - Izq
+		-0.5f, 0.5f, 0.5f,		1.0f, 1.0f,	//V4 - Izq
 		-0.5f, 0.5f, -0.5f,		0.0f, 1.0f,	//V7
-		-0.5f, -0.5f, -0.5f,	0.0f, 1.0f,	//V3
-		-0.5f, -0.5f, -0.5f,	0.0f, 1.0f,	//V3
-		-0.5f, 0.5f, 0.5f,		0.0f, 1.0f,	//V4
-		-0.5f, -0.5f, 0.5f,		0.0f, 1.0f,	//V0
+		-0.5f, -0.5f, -0.5f,	0.0f, 0.0f,	//V3
+		-0.5f, -0.5f, -0.5f,	0.0f, 0.0f,	//V3
+		-0.5f, 0.5f, 0.5f,		1.0f, 1.0f,	//V4
+		-0.5f, -0.5f, 0.5f,		1.0f, 0.0f,	//V0
 
-		0.5f, 0.5f, 0.5f,		1.0f, 0.0f,	//V5 - Der
-		0.5f, -0.5f, 0.5f,		1.0f, 0.0f,	//V1
+		0.5f, 0.5f, 0.5f,		0.0f, 1.0f,	//V5 - Der
+		0.5f, -0.5f, 0.5f,		0.0f, 0.0f,	//V1
 		0.5f, -0.5f, -0.5f,		1.0f, 0.0f,	//V2
-		0.5f, 0.5f, 0.5f,		1.0f, 0.0f,	//V5
-		0.5f, 0.5f, -0.5f,		1.0f, 0.0f,	//V6
-		0.5f, -0.5f, -0.5f,		1.0f, 0.0f,	//V2
-
-		-0.5f, 0.5f, 0.5f,		0.0f, 1.0f,	//V4 - Sup
 		0.5f, 0.5f, 0.5f,		0.0f, 1.0f,	//V5
-		0.5f, 0.5f, -0.5f,		0.0f, 1.0f,	//V6
-		-0.5f, 0.5f, 0.5f,		0.0f, 1.0f,	//V4
+		0.5f, 0.5f, -0.5f,		1.0f, 1.0f,	//V6
+		0.5f, -0.5f, -0.5f,		1.0f, 0.0f,	//V2
+
+		-0.5f, 0.5f, 0.5f,		0.0f, 0.0f,	//V4 - Sup
+		0.5f, 0.5f, 0.5f,		1.0f, 0.0f,	//V5
+		0.5f, 0.5f, -0.5f,		1.0f, 1.0f,	//V6
+		-0.5f, 0.5f, 0.5f,		0.0f, 0.0f,	//V4
 		-0.5f, 0.5f, -0.5f,		0.0f, 1.0f,	//V7
-		0.5f, 0.5f, -0.5f,		0.0f, 1.0f,	//V6
+		0.5f, 0.5f, -0.5f,		1.0f, 1.0f,	//V6
 
 		-0.5f, -0.5f, 0.5f,		1.0f, 1.0f,	//V0 - Inf
 		-0.5f, -0.5f, -0.5f,	1.0f, 1.0f,	//V3
@@ -525,9 +638,13 @@ int main() {
 
 	Model piso("resources/objects/piso/piso.obj");
 	Model escenario1("resources/objects/SonicObjects/obj1.obj");
+	Model escenario5("resources/objects/SonicObjects/obj5.obj");
 	Model palacio("resources/objects/BellasArtes/BellasArtes.obj");
-	Model fuente("resources/objects/fuente alameda/fuente.obj");
-	Model sonic("resources/objects/Sonic/Sonic.obj");
+
+	Model botnik("resources/objects/SonicObjects/botnikCuerpo.obj");
+	Model botnikDer("resources/objects/SonicObjects/botnikAlaDer.obj");
+	Model botnikIzq("resources/objects/SonicObjects/botnikAlaIzq.obj");
+
 	Model sonicPanza ("resources/objects/Sonic/SonicPanza.obj");
 	Model sonicCabeza("resources/objects/Sonic/SonicCabeza.obj");
 	Model sonicBrazoIzq("resources/objects/Sonic/SonicBrazoIzq.obj");
@@ -540,6 +657,23 @@ int main() {
 	Model hAspas2("resources/objects/Helicoptero/HelicopteroAspas.obj");
 
 	Model edificio1("resources/objects/Edificio1/Edificio1.obj");
+	
+	Model fuente("resources/objects/fuente alameda/fuente.obj");
+	Model cono("resources/objects/StreetObjects/cono.obj");
+	Model estacion("resources/objects/StreetObjects/estacion.obj");
+	Model banca("resources/objects/StreetObjects/banca.obj");
+	Model letrero("resources/objects/StreetObjects/letrero.obj");
+	Model basura("resources/objects/StreetObjects/basura.obj");
+	Model metrosalida("resources/objects/StreetObjects/metrosalida.obj");
+	Model alcantarilla("resources/objects/StreetObjects/alcantarilla.obj");
+	Model hidrante("resources/objects/StreetObjects/hidrante.obj");
+	Model lampara("resources/objects/StreetObjects/lampara.obj");
+
+	Model eggman("resources/objects/SonicObjects/eggman.obj");
+	
+	Model Carrito("resources/objects/Carrito/CarritoAnim.obj");
+
+	Model knuckles("resources/objects/knuckles/knuckles.obj");
 
 
 	/*ModelAnim animacionPersonaje("resources/objects/Personaje1/Arm.dae");
@@ -659,19 +793,6 @@ int main() {
 		animShader.setVec3("light.direction", lightDirection);
 		animShader.setVec3("viewPos", camera.Position);
 
-		//modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-40.3f, 1.75f, 0.3f)); // translate it down so it's at the center of the scene
-		//modelOp = glm::scale(modelOp, glm::vec3(0.05f));	// it's a bit too big for our scene, so scale it down
-		//modelOp = glm::rotate(modelOp, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		//animShader.setMat4("model", modelOp);
-		//animacionPersonaje.Draw(animShader);
-
-		// -------------------------------------------------------------------------------------------------------------------------
-		// Segundo Personaje Animacion
-		// -------------------------------------------------------------------------------------------------------------------------
-
-
-
-
 		// -------------------------------------------------------------------------------------------------------------------------
 		// Escenario Primitivas
 		// -------------------------------------------------------------------------------------------------------------------------
@@ -680,13 +801,13 @@ int main() {
 		//Tener Piso como referencia
 		glBindVertexArray(VAO[2]);
 		//Colocar código aquí
-		modelOp = glm::scale(glm::mat4(1.0f), glm::vec3(40.0f, 2.0f, 40.0f));
-		modelOp = glm::translate(modelOp, glm::vec3(0.0f, -1.0f, 0.0f));
-		modelOp = glm::rotate(modelOp, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		myShader.setMat4("model", modelOp);
-		myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
-		glBindTexture(GL_TEXTURE_2D, t_piso);
-		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		//modelOp = glm::scale(glm::mat4(1.0f), glm::vec3(40.0f, 2.0f, 40.0f));
+		//modelOp = glm::translate(modelOp, glm::vec3(0.0f, -1.0f, 0.0f));
+		//modelOp = glm::rotate(modelOp, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		//myShader.setMat4("model", modelOp);
+		//myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
+		//glBindTexture(GL_TEXTURE_2D, t_piso);
+		////glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 		modelOp = glm::scale(glm::mat4(1.0f), glm::vec3(38.0f, 2.0f, 4.0f));
 		modelOp = glm::translate(modelOp, glm::vec3(0.0f, 0.1f, -65.0f));
@@ -704,26 +825,62 @@ int main() {
 		glBindTexture(GL_TEXTURE_2D, t_pista);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-		glBindVertexArray(VAO[0]);
-		//Colocar código aquí
-		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 10.0f, 0.0f));
-		modelOp = glm::scale(modelOp, glm::vec3(5.0f, 5.0f, 1.0f));
+		modelOp = glm::scale(glm::mat4(1.0f), glm::vec3(4.0f, 2.0f, 16.1f));
+		modelOp = glm::translate(modelOp, glm::vec3(-70.0f, 0.1f, 0.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		myShader.setMat4("model", modelOp);
 		myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
-		glBindTexture(GL_TEXTURE_2D, t_unam);
-		//glDrawArrays(GL_TRIANGLES, 0, 36); //A lonely cube :(
-		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glBindTexture(GL_TEXTURE_2D, t_pista);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-		/***   Segundo objeto  **/
+		glBindVertexArray(VAO[0]);
+		//Colocar código aquí
+		//modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 10.0f, 0.0f));
+		//modelOp = glm::scale(modelOp, glm::vec3(5.0f, 5.0f, 1.0f));
+		//myShader.setMat4("model", modelOp);
+		//myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
+		//glBindTexture(GL_TEXTURE_2D, t_unam);
+		////glDrawArrays(GL_TRIANGLES, 0, 36); //A lonely cube :(
+		////glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+		/***   Cubo  **/
 		
 		glBindVertexArray(VAO[1]);
-		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 15.0f, 0.0f));
-		modelOp = glm::scale(modelOp, glm::vec3(30.0f));
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-425.0f, 30.0f, 0.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(60.0f, 60.0f, 60.0f));
 		myShader.setMat4("model", modelOp);
-		//myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
-		glBindTexture(GL_TEXTURE_3D, t_unam);
-		//glDrawArrays(GL_TRIANGLES, 0, 36); //A lonely cube :(
-		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
+		glBindTexture(GL_TEXTURE_2D, t_edificio);
+		glDrawArrays(GL_TRIANGLES, 0, 36); 
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-425.0f, 62.5f, 0.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(80.0f, 5.0f, 80.0f));
+		myShader.setMat4("model", modelOp);
+		myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
+		glBindTexture(GL_TEXTURE_2D, t_metal);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-425.0f, 95.0f, 0.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(60.0f, 60.0f, 60.0f));
+		myShader.setMat4("model", modelOp);
+		myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
+		glBindTexture(GL_TEXTURE_2D, t_edificio);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-425.0f, 122.7f, 0.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(80.0f, 5.0f, 80.0f));
+		myShader.setMat4("model", modelOp);
+		myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
+		glBindTexture(GL_TEXTURE_2D, t_metal);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-394.5f, 10.0f, 15.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(0.1f, 20.0f, 14.0f));
+		myShader.setMat4("model", modelOp);
+		myShader.setVec3("aColor", 1.0f, 1.0f, 1.0f);
+		glBindTexture(GL_TEXTURE_2D, t_puertaOficina);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
 		
 		glBindVertexArray(0);
 		// ------------------------------------------------------------------------------------------------------------------------
@@ -737,19 +894,52 @@ int main() {
 		staticShader.setMat4("projection", projectionOp);
 		staticShader.setMat4("view", viewOp);
 
-		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(100.0f, 0.0f, 0.0f));
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(100.0f, 0.0f, -150.0f));
 		modelOp = glm::scale(modelOp, glm::vec3(0.2f));
+		modelOp = glm::rotate(modelOp, glm::radians(225.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		staticShader.setMat4("model", modelOp);
 		escenario1.Draw(staticShader);
 
-		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-100.0f, 0.0f, 0.0f));
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-100.0f, 0.0f, -150.0f));
 		modelOp = glm::scale(modelOp, glm::vec3(0.2f));
-		modelOp = glm::rotate(modelOp, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		staticShader.setMat4("model", modelOp);
 		escenario1.Draw(staticShader);
 
-		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(400.0f, 0.0f, -80.0f));
-		modelOp = glm::scale(modelOp, glm::vec3(2.0f));
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(100.0f, 0.0f, 150.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(0.2f));
+		modelOp = glm::rotate(modelOp, glm::radians(135.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		staticShader.setMat4("model", modelOp);
+		escenario1.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-100.0f, 0.0f, 150.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(0.2f));
+		modelOp = glm::rotate(modelOp, glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		staticShader.setMat4("model", modelOp);
+		escenario1.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(80.0f, 0.0f, 75.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(0.5f, 0.2f, 0.2f));
+		staticShader.setMat4("model", modelOp);
+		escenario5.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-80.0f, 0.0f, 75.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(0.5f, 0.2f, 0.2f));
+		staticShader.setMat4("model", modelOp);
+		escenario5.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(80.0f, 0.0f, -75.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(0.5f, 0.2f, 0.2f));
+		staticShader.setMat4("model", modelOp);
+		escenario5.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-80.0f, 0.0f, -75.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(0.5f, 0.2f, 0.2f));
+		staticShader.setMat4("model", modelOp);
+		escenario5.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(390.0f, 0.0f, -53.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(2.35f));
 		staticShader.setMat4("model", modelOp);
 		palacio.Draw(staticShader);
 
@@ -759,42 +949,102 @@ int main() {
 		staticShader.setMat4("model", modelOp);
 		edificio1.Draw(staticShader);
 
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(480.0f, 0.0f, 290.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(2.5f));
+		staticShader.setMat4("model", modelOp);
+		cono.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(480.0f, 0.0f, 258.5f));
+		modelOp = glm::scale(modelOp, glm::vec3(2.5f));
+		staticShader.setMat4("model", modelOp);
+		cono.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(480.0f, 0.0f, 225.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(2.5f));
+		staticShader.setMat4("model", modelOp);
+		cono.Draw(staticShader);
+
 		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 		modelOp = glm::scale(modelOp, glm::vec3(5.0f));
 		staticShader.setMat4("model", modelOp);
 		fuente.Draw(staticShader);
 
-		//modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-150.0f, 0.0f, 0.0f));
-		////modelOp = glm::scale(modelOp, glm::vec3(5.0f));
-		//staticShader.setMat4("model", modelOp);
-		////sonic.Draw(staticShader);
-
-		/*modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(250.0f, 0.0f, -10.0f));
-		modelOp = glm::rotate(modelOp, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(450.0f, 0.0f, -350.0f));
 		staticShader.setMat4("model", modelOp);
-		casaDoll.Draw(staticShader);*/
+		estacion.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-250.0f, 0.0f, -350.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(2.0f));
+		staticShader.setMat4("model", modelOp);
+		banca.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-200.0f, 5.0f, -350.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(2.0f));
+		staticShader.setMat4("model", modelOp);
+		letrero.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(435.0f, 0.0f, 115.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(2.0f));
+		staticShader.setMat4("model", modelOp);
+		basura.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(250.0f, -10.5f, -115.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(0.3f));
+		staticShader.setMat4("model", modelOp);
+		metrosalida.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-293.0f, 0.5f, -115.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(2.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(orientacionAlcantarilla), glm::vec3(0.0f, 0.0f, 1.0f));
+		staticShader.setMat4("model", modelOp);
+		alcantarilla.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-284.0f, MovY_Nudillos, -115.0f));		
+		modelOp = glm::scale(modelOp, glm::vec3(0.1f));
+		modelOp = glm::rotate(modelOp, glm::radians(orientacionNudillos), glm::vec3(0.0f, 1.0f, 0.0f));
+		staticShader.setMat4("model", modelOp);
+		knuckles.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(150.0f, 0.0f, -350.0f));
+		staticShader.setMat4("model", modelOp);
+		hidrante.Draw(staticShader);
+
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(150.0f, 0.0f, -105.0f));
+		staticShader.setMat4("model", modelOp);
+		lampara.Draw(staticShader);
+
+		glm::mat4 cuerpoBotnik = glm::mat4(1.0f);
+		
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-100.0f, 50.0f, -90.0f));
+		cuerpoBotnik = modelOp = glm::rotate(modelOp, glm::radians(botnikRotate), glm::vec3(0.0f, 1.0f, 0.0f));
+		staticShader.setMat4("model", modelOp);
+		botnik.Draw(staticShader);
+
+		modelOp = glm::translate(cuerpoBotnik, glm::vec3(-3.117f, 13.51f, -58.655));
+		modelOp = glm::rotate(modelOp, glm::radians(botnikAlas), glm::vec3(1.0f, 0.0f, 0.0f));
+		staticShader.setMat4("model", modelOp);
+		botnikDer.Draw(staticShader);
+
+		modelOp = glm::translate(cuerpoBotnik, glm::vec3(-2.96f, 13.254f, -68.811));
+		modelOp = glm::rotate(modelOp, glm::radians(-botnikAlas), glm::vec3(1.0f, 0.0f, 0.0f));
+		staticShader.setMat4("model", modelOp);
+		botnikIzq.Draw(staticShader);
 
 		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.75f, 0.0f));
 		modelOp = glm::scale(modelOp, glm::vec3(0.2f));
 		staticShader.setMat4("model", modelOp);
 		piso.Draw(staticShader);
 
-		/*modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -70.0f));
-		modelOp = glm::scale(modelOp, glm::vec3(5.0f));
-		staticShader.setMat4("model", modelOp);
-		staticShader.setVec3("dirLight.specular", glm::vec3(0.0f, 0.0f, 0.0f));
-		casaVieja.Draw(staticShader);*/
 
 		// -------------------------------------------------------------------------------------------------------------------------
 		// Carro
 		// -------------------------------------------------------------------------------------------------------------------------
 		//modelOp = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		//modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(movAuto_x, -1.0f, movAuto_z - 15.0f));
-		//tmp = modelOp = glm::rotate(modelOp, glm::radians(orienta), glm::vec3(0.0f, 1.0f, 0.0f));
-		//modelOp = glm::scale(modelOp, glm::vec3(0.1f, 0.1f, 0.1f));
-		//staticShader.setVec3("dirLight.specular", glm::vec3(0.6f, 0.6f, 0.6f));
-		//staticShader.setMat4("model", modelOp);
-		//carro.Draw(staticShader);
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(movAuto_x, 0.0f, movAuto_z));
+		tmp = modelOp = glm::rotate(modelOp, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		modelOp = glm::scale(modelOp, glm::vec3(3.0));
+		staticShader.setMat4("model", modelOp);
+		//Carrito.Draw(staticShader);
 
 		//modelOp = glm::translate(tmp, glm::vec3(8.5f, 2.5f, 12.9f));
 		//modelOp = glm::scale(modelOp, glm::vec3(0.1f, 0.1f, 0.1f));
@@ -824,7 +1074,8 @@ int main() {
 		// -------------------------------------------------------------------------------------------------------------------------
 		glm::mat4 cuerpoSonic = glm::mat4(1.0f);
 
-		cuerpoSonic = modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(-100.0f, 4.0f, 100.0f));
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(movX_Sonic, movY_Sonic, movZ_Sonic));
+		cuerpoSonic = modelOp = glm::rotate(modelOp, glm::radians(orientacionSonic), glm::vec3(0.0f, 1.0f, 0.0f));
 		staticShader.setMat4("model", modelOp);
 		sonicPanza.Draw(staticShader);
 		
@@ -834,19 +1085,23 @@ int main() {
 		
 		modelOp = glm::translate(cuerpoSonic, glm::vec3(-1.455f, 0.55f, 0.115f));
 		modelOp = glm::rotate(modelOp, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(rotacionSonic), glm::vec3(0.0f, 1.0f, 0.0f));
 		staticShader.setMat4("model", modelOp);
 		sonicBrazoIzq.Draw(staticShader);
 
 		modelOp = glm::translate(cuerpoSonic, glm::vec3(1.38f, 0.45f, -0.198f));
 		modelOp = glm::rotate(modelOp, glm::radians(-45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(rotacionSonic), glm::vec3(0.0f, 1.0f, 0.0f));
 		staticShader.setMat4("model", modelOp);
 		sonicBrazoDer.Draw(staticShader);
 		
 		modelOp = glm::translate(cuerpoSonic, glm::vec3(-1.063f, -1.563f, 0.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(rotacionSonic), glm::vec3(1.0f, 0.0f, 0.0f));
 		staticShader.setMat4("model", modelOp);
 		sonicPiernaIzq.Draw(staticShader);
 		
 		modelOp = glm::translate(cuerpoSonic, glm::vec3(0.88f, -1.444f, 0.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(-rotacionSonic), glm::vec3(1.0f, 0.0f, 0.0f));
 		staticShader.setMat4("model", modelOp);
 		sonicPiernaDer.Draw(staticShader);
 		
@@ -872,56 +1127,14 @@ int main() {
 		hAspas2.Draw(staticShader);
 
 		// -------------------------------------------------------------------------------------------------------------------------
-		// Just in case
+		// Eggman
 		// -------------------------------------------------------------------------------------------------------------------------
-		/*modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(posX, posY, posZ));
-		tmp = modelOp = glm::rotate(modelOp, glm::radians(giroMonito), glm::vec3(0.0f, 1.0f, 0.0));
-		staticShader.setMat4("model", modelOp);
-		torso.Draw(staticShader);
 
-		//Pierna Der
-		modelOp = glm::translate(tmp, glm::vec3(-0.5f, 0.0f, -0.1f));
-		modelOp = glm::rotate(modelOp, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0));
-		modelOp = glm::rotate(modelOp, glm::radians(-rotRodIzq), glm::vec3(1.0f, 0.0f, 0.0f));
+		modelOp = glm::translate(glm::mat4(1.0f), glm::vec3(movEggman_x + 300.0f, movEggman_y+50.0f, movEggman_z-400.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(orientaEggman), glm::vec3(0.0f, 1.0f, 0.0f));
+		modelOp = glm::rotate(modelOp, glm::radians(rotEggman), glm::vec3(0.0f, 0.0f, 1.0f));
 		staticShader.setMat4("model", modelOp);
-		piernaDer.Draw(staticShader);
-
-		//Pie Der
-		modelOp = glm::translate(modelOp, glm::vec3(0, -0.9f, -0.2f));
-		staticShader.setMat4("model", modelOp);
-		botaDer.Draw(staticShader);
-
-		//Pierna Izq
-		modelOp = glm::translate(tmp, glm::vec3(0.5f, 0.0f, -0.1f));
-		modelOp = glm::rotate(modelOp, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		staticShader.setMat4("model", modelOp);
-		piernaIzq.Draw(staticShader);
-
-		//Pie Iz
-		modelOp = glm::translate(modelOp, glm::vec3(0, -0.9f, -0.2f));
-		staticShader.setMat4("model", modelOp);
-		botaDer.Draw(staticShader);	//Izq trase
-
-		//Brazo derecho
-		modelOp = glm::translate(tmp, glm::vec3(0.0f, -1.0f, 0.0f));
-		modelOp = glm::translate(modelOp, glm::vec3(-0.75f, 2.5f, 0));
-		modelOp = glm::rotate(modelOp, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		staticShader.setMat4("model", modelOp);
-		brazoDer.Draw(staticShader);
-
-		//Brazo izquierdo
-		modelOp = glm::translate(tmp, glm::vec3(0.0f, -1.0f, 0.0f));
-		modelOp = glm::translate(modelOp, glm::vec3(0.75f, 2.5f, 0));
-		modelOp = glm::rotate(modelOp, glm::radians(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		staticShader.setMat4("model", modelOp);
-		brazoIzq.Draw(staticShader);
-
-		//Cabeza
-		modelOp = glm::translate(tmp, glm::vec3(0.0f, -1.0f, 0.0f));
-		modelOp = glm::rotate(modelOp, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0));
-		modelOp = glm::translate(modelOp, glm::vec3(0.0f, 2.5f, 0));
-		staticShader.setMat4("model", modelOp);
-		cabeza.Draw(staticShader);*/
+		eggman.Draw(staticShader);
 
 		//-------------------------------------------------------------------------------------
 		// draw skybox as last
@@ -958,24 +1171,101 @@ void my_input(GLFWwindow* window, int key, int scancode, int action, int mode)
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 		camera.ProcessKeyboard(FORWARD, (float)deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		animSonicZ = true;
+	}
+	
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
 		camera.ProcessKeyboard(BACKWARD, (float)deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		animSonicZ = true;
+	}
+		
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
 		camera.ProcessKeyboard(LEFT, (float)deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		animSonicX = true;
+	}
+		
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 		camera.ProcessKeyboard(RIGHT, (float)deltaTime);
+		animSonicX = true;
+	}
+		
 
 	//To Configure Model
-	if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS)
-		posZ++;
-	if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
-		posZ--;
-	if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
-		posX--;
-	if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
-		posX++;
+	if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS) {
+		movZ_Sonic -= 1.8;
+		if (adelanteSonic == 1) {
+			if (rotacionSonic >= -45)
+				rotacionSonic -= 7.0;
+			else
+				adelanteSonic = 0;
+		}
+
+		if (adelanteSonic == 0) {
+			if (rotacionSonic <= 45)
+				rotacionSonic += 7.0;
+			else
+				adelanteSonic = 1;
+		}
+	}
+		
+	if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS) {
+		movZ_Sonic += 1.8;
+		if (adelanteSonic == 1) {
+			if (rotacionSonic >= -45)
+				rotacionSonic -= 7.0;
+			else
+				adelanteSonic = 0;
+		}
+
+		if (adelanteSonic == 0) {
+			if (rotacionSonic <= 45)
+				rotacionSonic += 7.0;
+			else
+				adelanteSonic = 1;
+		}
+	}
+		
+	if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
+		movX_Sonic -= 1.8;
+		if (adelanteSonic == 1) {
+			if (rotacionSonic >= -45)
+				rotacionSonic -= 7.0;
+			else
+				adelanteSonic = 0;
+		}
+
+		if (adelanteSonic == 0) {
+			if (rotacionSonic <= 45)
+				rotacionSonic += 7.0;
+			else
+				adelanteSonic = 1;
+		}
+	}
+		
+	if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) {
+		movX_Sonic += 1.8;
+		if (adelanteSonic == 1) {
+			if (rotacionSonic >= -45)
+				rotacionSonic -= 7.0;
+			else
+				adelanteSonic = 0;
+		}
+
+		if (adelanteSonic == 0) {
+			if (rotacionSonic <= 45)
+				rotacionSonic += 7.0;
+			else
+				adelanteSonic = 1;
+		}
+	}
+		
+	if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
+		orientacionSonic -= 2.5;
+
+	if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
+		orientacionSonic += 2.5;
 
 	//Teclas Helicptero
 	//reseteo
@@ -996,19 +1286,38 @@ void my_input(GLFWwindow* window, int key, int scancode, int action, int mode)
 		else
 			banderaHelicoptero = 0.0f;
 	}
+
+	if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
+		animacionBotnik ^= true;
+	}
 		
-
-
-	if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-		rotHAspas+= 15.3;
 	if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS)
-		giroMonito--;
-	if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
-		giroMonito++;
-	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS)
+		animacionNudillos ^= true;
+	if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
+		orientacionNudillos = 0.0f,
+		orientacionAlcantarilla = 0.0f,
+		MovY_Nudillos = -18.0f;
+		animacionNudillos = false;
+	}
+	// Animación Eggman
+	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
+		i = 0.0;
+		rotEggman = 0.0f;
+		movEggman_x = 0.0f;
+		movEggman_y = 0.0f;
+		animEggman = false;
+		volando = 1;
+		orientaEggman = 0;
+	}
+	if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
+		volando = 0;
+		animEggman ^= true;
+	}
+
+	/*if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS)
 		lightPosition.x++;
 	if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS)
-		lightPosition.x--;
+		lightPosition.x--;*/
 
 	//Car animation
 	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
